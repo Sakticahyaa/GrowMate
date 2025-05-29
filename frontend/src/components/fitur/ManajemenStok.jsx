@@ -33,8 +33,10 @@ export default function ManajemenStok() {
       const { token, user } = auth;
       const username = user.username;
       
-      const API_URL = process.env.REACT_APP_API_URL;
-      const res = await fetch(`${API_URL}/api/auth/register`, {
+      console.log('Fetching products for username:', username);
+      console.log('Using token:', token.substring(0, 20) + '...');
+
+      const response = await fetch(`https://growmate-app.up.railway.app/api/products/${username}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -149,14 +151,61 @@ export default function ManajemenStok() {
 
   const handleTambahProduk = async () => {
     try {
-        setLoading(true);
-        setError(null);
-        const auth = validateToken();
-        if (!auth) {
-          setError("Session expired. Silakan login ulang.");
-          return;
-        }
-        const { token, user } = auth;
+      setLoading(true);
+      setError(null);
+      
+      // Validasi token
+      const auth = validateToken();
+      if (!auth) {
+        setError("Session expired. Silakan login ulang.");
+        return;
+      }
+      
+      const { token, user } = auth;
+
+      // Validasi input
+      if (!formData.name.trim() || !formData.category.trim() || !formData.unit_price || !formData.stock) {
+        alert("Semua field harus diisi!");
+        return;
+      }
+
+      // Validasi angka
+      const unitPrice = parseInt(formData.unit_price);
+      const stock = parseInt(formData.stock);
+      
+      if (isNaN(unitPrice) || unitPrice <= 0) {
+        alert("Harga harus berupa angka yang valid dan lebih dari 0!");
+        return;
+      }
+      
+      if (isNaN(stock) || stock < 0) {
+        alert("Stok harus berupa angka yang valid dan tidak boleh negatif!");
+        return;
+      }
+
+      const produkData = {
+        name: formData.name.trim(),
+        category: formData.category.trim(),
+        unit_price: unitPrice,
+        stock: stock,
+        username: user.username
+      };
+
+      console.log('Sending product data:', produkData);
+
+      const response = await fetch('https://growmate-app.up.railway.app/api/products/create', {
+        method: "POST",
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(produkData)
+      });
+
+      console.log('Create response status:', response.status);
+
+      const responseText = await response.text();
+      console.log('Create raw response:', responseText);
 
         if (!formData.name.trim() || !formData.category.trim() || !formData.unit_price || !formData.stock) {
           alert("Semua field harus diisi!");
@@ -213,13 +262,14 @@ export default function ManajemenStok() {
     if (!confirm("Yakin ingin menghapus produk ini?")) {
         return;
       }
-      try {
-        setLoading(true);
-        setError(null);
-        const auth = validateToken();
-        if (!auth) {
-          setError("Session expired. Silakan login ulang.");
-          return;
+
+      const { token } = auth;
+      
+      const response = await fetch(`https://growmate-app.up.railway.app/api/products/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
         const { token } = auth;
         const API_URL = process.env.REACT_APP_API_URL;
@@ -380,7 +430,43 @@ export default function ManajemenStok() {
     // Use the manualDate from the state
     const dateString = manualDate; // manualDate should be in 'YYYY-MM-DD' format from input type="date"
 
-    const productIds = produkList.map(p => p.id);
+
+    // Prepare data dengan validasi yang ketat
+    const updateData = {
+      name: editFormData.name.trim(),
+      category: editFormData.category.trim(),
+      unit_price: unitPriceNum,
+      stock: stockNum
+    };
+
+      const response = await fetch(`https://growmate-app.up.railway.app/api/products/${edutProdukId}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(updateData)
+    });
+
+    console.log('Update response status:', response.status);
+    console.log('Update response headers:', [...response.headers.entries()]);
+
+    // Handle response
+    const responseText = await response.text();
+    console.log('Update raw response:', responseText);
+
+    if (!response.ok) {
+      console.error('Update error response:', responseText);
+      
+      // Parse error jika memungkinkan
+      try {
+        const errorObj = JSON.parse(responseText);
+        throw new Error(`Gagal update produk: ${response.status} - ${JSON.stringify(errorObj)}`);
+      } catch (parseErr) {
+        throw new Error(`Gagal update produk: ${response.status} - ${responseText}`);
+      }
+    }
+
 
     try {
       const API_URL = process.env.REACT_APP_API_URL;
